@@ -159,7 +159,24 @@ const uploadVideoMetaData = asynchandler(async(req,res)=>{
     try {
         console.log("its coming");
 
-        const {title,description,genre,videoType,trailerUrl,language,isTrailerLaunched,duration,rating,views,cast,thumbnail,director,producer,status,isTop10,hasNewEpisodes} = req.body;
+        const {title,
+            description,
+            genre,
+            videoType,
+            trailerUrl,
+            language,
+            isTrailerLaunched,
+            duration,
+            rating,
+            views,
+            cast,
+            thumbnail,
+            director,
+            producer,
+            status,
+            isTop10,
+            hasNewEpisodes,
+            relatedVideos} = req.body;
 
         console.log(`the data is ${title}, ${description}, ${genre}`);
     
@@ -167,9 +184,26 @@ const uploadVideoMetaData = asynchandler(async(req,res)=>{
     
             //     throw new ApiError(400,"Mandatory fields are required ");
             // }
-            if(!title || !description|| !trailerUrl || !videoType || !language || !isTrailerLaunched || !duration || !rating || !views || !cast || !thumbnail || !director ||!producer|| !status || !isTop10 || !hasNewEpisodes){
-                throw new ApiError(400,"Mandatory fields are required ");
-            }
+            // if(!title ||
+            //       !description ||
+            //        !genre ||
+            //         !trailerUrl ||
+            //          !videoType ||
+            //           !language ||
+            //            !isTrailerLaunched ||
+            //              !isTop10 ||
+            //               !relatedVideos ||
+            //                !hasNewEpisodes||
+            //                 !duration ||
+            //                  !rating ||
+            //                   !views ||
+            //                    !cast ||
+            //                     !thumbnail ||
+            //                      !director ||
+            //                       !producer||
+            //                        !status ){
+            //     throw new ApiError(400,"Mandatory fields are required ");
+            // }
 
             console.log(`The admin id is ${req.admin._id}`);
 
@@ -191,16 +225,18 @@ const uploadVideoMetaData = asynchandler(async(req,res)=>{
                 status,
                 isTop10,
                 hasNewEpisodes,
-                // relatedVideos,
+                relatedVideos,
                 "addedBy": req.admin._id
             })
+
+            // not added fields are isPublished, url, releaseDate, seasons
     
             console.log(`The video id is ${video._id}`);
 
             res.status(200).json(new ApiResponse(200,video,"Video MetaData uploaded Successful"))
         
     } catch (error) {
-        res.status(400).json( new ApiResponse(400,{error:error},"Error Occurred"))
+        res.status(400).json( new ApiResponse(400,{error:error.message},"Error Occurred"))
     }
 
 })
@@ -259,7 +295,7 @@ const getSignedUrlForVideo = asynchandler(async(req,res)=>{
 const uploadVideoUrl = asynchandler(async(req,res)=>{
 
   try {
-      const {videoId,videoUrl} = req.params.id;
+      const {videoId,videoUrl} = req.body;
       if(!videoId){
           throw new ApiError(400,"All fields are required")
       }
@@ -270,22 +306,251 @@ const uploadVideoUrl = asynchandler(async(req,res)=>{
           throw new ApiError(401,"Video Doesn't exist")
       }
   
-      await Video.updateOne({_id:video._id},{
+      const updatedVideo  = await Video.updateOne({_id:video._id},{
           $set:{
               url:videoUrl,
-              isPublished:true
+              status:"UPLOADED"
           }
       })
-  
-      return res.status(200).json(new ApiResponse(200,{},"Url updated successfully"))
+
+      if(!updatedVideo){
+        throw ApiError(404,"Video not found");
+      }
+
+      return res.status(200).json(new ApiResponse(200,{data:updatedVideo},"Url updated successfully"))
   } catch (error) {
-    return res.status(400).json(new ApiResponse(400,{error},"Error Occurred"))
+    return res.status(400).json(new ApiResponse(400,{error:error.message},"Error Occurred"))
     
   }
 
+});
+
+
+const addSeason = asynchandler(async(req,res)=>{
+    try {
+        const {seriesId,seasonId,trailerUrl} = req.body;
+
+        const series = await Video.findById(seriesId);
+
+        if(!series){
+            throw ApiError(401,"Video not found")
+        }
+
+
+        const updatedSeries = await Video.findOneAndUpdate(
+            {
+            "_id":seriesId,  
+            "seasons.season":{$ne:seasonId}
+            },
+            {
+            $push:{
+                seasons:{
+                    season:seasonId,
+                    trailerUrl:trailerUrl
+                }
+            }
+        },{new:true,upsert:true})
+
+        return res.status(200).json(new ApiResponse(200,{data:updatedSeries},"Season Added"))
+
+    } catch (error) {
+        console.log(`THE ERROR IS ${error}`);
+    return res.status(400).json(new ApiResponse(400,{error:error.message},"Error Occurred"))
+        
+    }
+
+});
+
+
+const addEpisode = asynchandler(async(req,res)=>{
+    try {
+        const {seriesId,seasonId,episodeId,episodeNumber} = req.body;
+
+        const series = await Video.findById(seriesId);
+        
+        if(!series){
+            throw ApiError(404,"Series not found")
+        }
+       
+
+        // const video = await Video.findOneAndUpdate({
+        //     '_id':seriesId,
+        //     'seasons.season':seasonId,
+        //     'seasons.episodes.episodeNumber':episodeNumber
+        // },{
+        //     $set:{
+        //         'seasons.$[seasonElem].episodes.$[episodeElem].videoId':episodeId
+        //     }
+
+        // },
+        // {
+        //     arrayFilters:[{'seasonElem.season':parseInt(seasonId),'episodeElem.episodeNumber':parseInt(episodeNumber)}],
+        //     new:true,
+        //     upsert:true
+
+        // })
+
+        // if(video){
+        //    return res.status(200).json(new ApiResponse(200,{data:video},"Video with episode number already Exist"));
+        // }
+
+        const updatedseries = await Video.findOneAndUpdate({
+            '_id':seriesId,
+            'seasons.season':seasonId,
+        },{
+            $push:{
+                'seasons.$.episodes':{
+                    'videoId':episodeId,
+                    'episodeNumber':episodeNumber
+                }
+            }
+        },
+        {
+            new:true
+        }
+    )
+
+    if(!updatedseries){
+        throw ApiError(404,"Video or season not found");
+    }
+
+
+        console.log(`The Updated Series is ${updatedseries}`);
+
+        return res.status(200).json(new ApiResponse(200,{data:updatedseries},"Data updated successfully"))
+        
+    } catch (error) {
+    return res.status(400).json(new ApiResponse(400,{error:error.message},"Error Occurred"))
+        
+    }
+
 })
 
+const deleteEpisode = asynchandler(async(req,res)=>{
+    try {
 
+        const {seriesId,seasonNumber,episodeNumber} = req.params;
+
+        const deletedEpisode = await Video.findOneAndUpdate({
+            '_id':seriesId,
+            'seasons.season':seasonNumber
+        },{
+            $pull:{
+                'seasons.$.episodes':{episodeNumber:parseInt(episodeNumber,10)}
+            }
+        },{
+            new:true
+        }
+    )
+
+        
+        if(!deletedEpisode){
+            throw ApiError(404,"Series or Season or Episode not found")
+        }
+       return res.status(200).json(new ApiResponse(200,{data:deletedEpisode},"Episode Deleted successfully"))
+        
+    } catch (error) {
+        return res.status(400).json(new ApiResponse(error.statusCode,{error:error.messahe},"Error Occurred"));
+    }
+});
+
+
+const updateEpisode = asynchandler(async(req,res)=>{
+    try {
+        const { seriesId, seasonNumber, episodeNumber } = req.params;
+        const { newVideoId,newEpisodeId } = req.body; 
+
+        const video = await Video.findOne({
+            '_id':seriesId,
+            'seasons.season':seasonNumber,
+            // 'seasons.episodes.episodeNumber':episodeNumber
+
+        },
+        {
+            $set:{
+                'seasons.$[seasonElem].episodes.$[episodeElem].videoId':newVideoId,
+                'seasons.$[seasonElem].episodes.$[episodeElem].episodeNumber':newEpisodeId,
+            }
+        },{
+            arrayFilters:[
+                {
+                'seasonElem.season':parseInt(seasonNumber),
+                'episodeElem.episodeNumber':parseInt(episodeNumber)
+            }
+            ],
+            new:true,
+            upsert:true
+        }
+    )
+
+
+        if(!video){
+            throw ApiError(404,"Series or Season or Episode not found")
+        }
+        
+        return res.status(200).json(new ApiResponse(200,{data:video},"Video updated successfully"));
+        
+    } catch (error) {
+        console.log(`The ERROR is ${error}`);
+        return res.status(400).json(new ApiResponse(error.statusCode,{error:error.message},"Error Occurred"));
+        
+    }
+})
+const uploadreleaseDate = asynchandler(async(req,res)=>{
+    try {
+        const {videoId,releaseDate} = req.body;
+
+        const video = await Video.findByIdAndUpdate({
+            '_id':videoId,
+        },{
+            $set:{
+                releaseDate:releaseDate
+            }
+        },{
+            new:true
+        })
+        
+        if(!video){
+            throw ApiError(404,"Video not found");
+        }
+
+        return res.status(200).json(new ApiResponse(200,{data:video},"Release date updated successfully"));
+
+    } catch (error) {
+        console.log(`The ERROR is ${error}`);
+        return res.status(400).json(new ApiResponse(error.statusCode,{error:error.message},"Error Occurred"));
+        
+    }
+})
+const releaseVideo = asynchandler(async(req,res)=>{
+    try {
+        const {videoId} = req.body;
+
+        const video  = await Video.findOneAndUpdate({
+            _id:videoId,
+            isPublished:false,
+            url:{$exists:true},
+            releaseDate:{$exists:true}
+        },{
+            $set:{
+                isPublished:true
+            }
+        },{
+            new:true
+        }
+    )
+    if(!video){
+        throw ApiError(404,"video not found");
+    }
+    return res.status(200).json(new ApiResponse(200,{data:video},"Video released successfully"))
+    } catch (error) {
+        console.log(`The ERROR is ${error}`);
+        return res.status(400).json(new ApiResponse(error.statusCode,{error:error.message},"Error Occurred"));
+        
+    }
+})
+
+// make a route to add relatedvideos based on it genre and release Date. 
 module.exports= {
     registerAdmin,
     loginAdmin,
@@ -293,6 +558,11 @@ module.exports= {
     refreshAccessToken,
     uploadVideoMetaData,
     uploadVideoUrl,
-    getSignedUrlForVideo
-    
+    getSignedUrlForVideo,
+    addSeason,
+    addEpisode,
+    deleteEpisode,
+    updateEpisode,    
+    uploadreleaseDate,
+    releaseVideo
 }

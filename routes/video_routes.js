@@ -2,20 +2,21 @@ const express = require('express');
 const { verifyJwt } = require('../middlewares/admin_middleware.js');
 const {uploadVideoMetaData} = require('../controllers/admin_controller.js')
 const router = express.Router();
-const {getRecentVideos,getInProgressVideos,getSeriesVideos,getMovieByGenre,getTop10Videos} = require('../controllers/video_controller.js');
+const {getRecentVideos,getInProgressVideos,getSeriesVideos,getMovieByGenre,getTop10Videos,getVideoById} = require('../controllers/video_controller.js');
 
 // router.post('/create-video',verifyJwt,uploadVideoMetaData)
 
-router.get('/recent/:page',getRecentVideos);
+
+router.get('/recent',getRecentVideos);
 router.get('/top10-videos',getTop10Videos);
 router.get('/continue-watching/:userId',getInProgressVideos);
-router.get('/series/:page',getSeriesVideos);
-router.get('/getByGenre/',getMovieByGenre);
+router.get('/series',getSeriesVideos);
+router.get('/getByGenre',getMovieByGenre);
 
 router.get('/trending-videos');
 
- 
-router.get('/getvideo/:id')
+
+router.get('/getvideo/:videoId',getVideoById);
 
 router.post('/update-url')
 

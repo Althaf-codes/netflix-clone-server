@@ -1,13 +1,16 @@
 const express = require('express');
 
 const router = express.Router();
+const  {createUser,getUser,updateWatchHistory}= require('../controllers/user_controller.js');
+
+router.post('/create-user',createUser);
+
+router.get('/get-user/:email/:uid',getUser);
 
 
-router.post('/create-user',)
+router.post('/update-watchHistory',updateWatchHistory);
 
-router.get('/get-details')
-
-router.post('/update-watchlist')
+router.post('/update-watchlist',)
 
 router.post('/add-favourites')
 

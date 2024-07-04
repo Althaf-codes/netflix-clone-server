@@ -15,6 +15,7 @@ const { verifyJwt} = require('./middlewares/admin_middleware.js');
 
 const adminRoute = require('./routes/admin_routes.js');
 const videoRoute = require('./routes/video_routes.js');
+const userRoute =  require('./routes/user_routes.js');
 
 const corsoptions = cors({
     origin:'*'
@@ -41,8 +42,10 @@ connectDB();
 // console.log(`next30DaysDate is ${next30DaysDate}`);
 // console.log(`formattedDate is ${formattedDate   }`);
 
-app.use("/admin",adminRoute)
-app.use("/videos",videoRoute)
+app.use("/admin",adminRoute);
+app.use("/videos",videoRoute);
+app.use("/user",userRoute);
+
 // app.use("/video")
 
 
